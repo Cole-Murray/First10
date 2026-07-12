@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+    <setting propertyKey="@Properties.durationMin" title="@Strings.SettingDuration">
+        <settingConfig type="numeric" min="1" max="180"/>
+    </setting>
+    <setting propertyKey="@Properties.difficulty" title="@Strings.SettingDifficulty">
+        <settingConfig type="numeric" min="0" max="2"/>
+    </setting>
+    <setting propertyKey="@Properties.snoozeSeconds" title="@Strings.SettingSnoozeSeconds">
+        <settingConfig type="numeric" min="5" max="60"/>
+    </setting>
+    <setting propertyKey="@Properties.maxSnoozes" title="@Strings.SettingMaxSnoozes">
+        <settingConfig type="numeric" min="0" max="20"/>
+    </setting>
+    <setting propertyKey="@Properties.hardCapMin" title="@Strings.SettingHardCap">
+        <settingConfig type="numeric" min="1" max="30"/>
+    </setting>
+    <setting propertyKey="@Properties.enableTone" title="@Strings.SettingTone">
+        <settingConfig type="boolean"/>
+    </setting>
+</settings>

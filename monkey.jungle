@@ -1,0 +1,4 @@
+# First10 build configuration.
+# Sources default to source/ and resources to resources/, so only the
+# manifest needs to be declared explicitly.
+project.manifest = manifest.xml

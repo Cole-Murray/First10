@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<strings>
+    <string id="AppName">First10</string>
+
+    <!-- Settings labels -->
+    <string id="SettingDuration">Default nap length (minutes)</string>
+    <string id="SettingDifficulty">Difficulty (0=Easy, 1=Medium, 2=Hard)</string>
+    <string id="SettingSnoozeSeconds">Snooze length (seconds)</string>
+    <string id="SettingMaxSnoozes">Max snoozes</string>
+    <string id="SettingHardCap">Safety auto-dismiss after (minutes)</string>
+    <string id="SettingTone">Play tone with vibration</string>
+</strings>
