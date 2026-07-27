@@ -14,7 +14,16 @@ import Toybox.System;
 //   - heart   : latest optical HR in bpm (may be null while it settles)
 //   - motion  : a rolling "movement intensity" metric derived from the
 //               high-frequency accelerometer, in milli-g of magnitude std-dev.
-module SensorManager {
+//
+// Implementation note: Sensor.enableSensorEvents / registerSensorDataListener
+// need bound method references (method(:onSensorInfo) / method(:onSensorData)),
+// and Monkey C's method() builtin requires a real object instance as `self` to
+// bind against -- a module is not an object instance, so the callback wiring
+// can't live at module scope. The actual state/logic therefore lives in a
+// private singleton class, and the public SensorManager module is a thin set
+// of delegating wrappers so every existing call site (SensorManager.start(),
+// SensorManager.getSteps(), etc.) keeps working unchanged.
+class SensorManagerImpl {
 
     var _running = false as Boolean;
     var _hr = null as Number?;
@@ -174,5 +183,54 @@ module SensorManager {
             variance = 0.0;
         }
         return Math.sqrt(variance);
+    }
+}
+
+// Public API -- unchanged call syntax for every existing caller
+// (SensorManager.start(), SensorManager.getSteps(), SensorManager.getHeartRate(),
+// SensorManager.getMotion(), SensorManager.shutdown(), ...). Each function is a
+// thin delegate onto the single SensorManagerImpl instance below.
+module SensorManager {
+
+    var _impl = new SensorManagerImpl();
+
+    function isRunning() as Boolean {
+        return _impl.isRunning();
+    }
+
+    function heartRateSupported() as Boolean {
+        return _impl.heartRateSupported();
+    }
+
+    function highFreqSupported() as Boolean {
+        return _impl.highFreqSupported();
+    }
+
+    function gyroPresent() as Boolean {
+        return _impl.gyroPresent();
+    }
+
+    function start() as Void {
+        _impl.start();
+    }
+
+    function stop() as Void {
+        _impl.stop();
+    }
+
+    function shutdown() as Void {
+        _impl.shutdown();
+    }
+
+    function getHeartRate() as Number? {
+        return _impl.getHeartRate();
+    }
+
+    function getMotion() as Float {
+        return _impl.getMotion();
+    }
+
+    function getSteps() as Number {
+        return _impl.getSteps();
     }
 }

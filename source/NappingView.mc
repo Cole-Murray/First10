@@ -78,7 +78,7 @@ class NappingView extends WatchUi.View {
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.setColor(Theme.BG, Theme.BG);
         dc.clear();
 
         var showCountdown = System.getTimer() < _peekUntilMs;
@@ -91,14 +91,14 @@ class NappingView extends WatchUi.View {
         var h = dc.getHeight();
         var cx = w / 2;
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(Theme.TXT_HINT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h * 0.20, Graphics.FONT_XTINY, "napping", Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.36, Graphics.FONT_NUMBER_MEDIUM,
+        dc.setColor(Theme.TXT2, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h * 0.36, Theme.bigNumberFont(w),
             _formatRemaining(), Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(Theme.TXT_HINT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h * 0.70, Graphics.FONT_XTINY, "BACK to cancel", Graphics.TEXT_JUSTIFY_CENTER);
     }
 

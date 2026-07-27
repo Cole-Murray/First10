@@ -38,6 +38,10 @@ class AlarmView extends WatchUi.View {
     var _snoozesUsed as Number = 0;
     var _safetyDismiss as Boolean = false;
 
+    // Eased copy of _score.progress() so the ring glides toward the real value
+    // instead of jumping every tick.
+    var _displayedProgress as Float = 0.0;
+
     function initialize(difficulty as Number) {
         View.initialize();
         _cfg = Difficulty.forLevel(difficulty);
@@ -51,6 +55,7 @@ class AlarmView extends WatchUi.View {
         _phase = PHASE_BASELINE;
         _phaseEndMs = now + BASELINE_MS;
         _nextAlertMs = now;
+        _displayedProgress = 0.0;
 
         SensorManager.start();
         _baselineSteps = SensorManager.getSteps();
@@ -99,6 +104,10 @@ class AlarmView extends WatchUi.View {
         var dt = (now - _lastTickMs) / 1000.0;
         _lastTickMs = now;
         if (dt <= 0.0) { dt = 0.25; }
+
+        // Ease the displayed ring value toward the real score every tick so it
+        // glides rather than snapping between readings.
+        _displayedProgress += (_score.progress() - _displayedProgress) * 0.25;
 
         var hr = SensorManager.getHeartRate();
         var steps = SensorManager.getSteps();
@@ -197,78 +206,84 @@ class AlarmView extends WatchUi.View {
         var cx = w / 2;
         var cy = h / 2;
 
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.setColor(Theme.BG, Theme.BG);
         dc.clear();
 
         if (_phase == PHASE_SNOOZE) {
-            _drawSnooze(dc, cx, h);
+            _drawSnooze(dc, cx, h, w);
             return;
         }
 
-        // Progress ring
-        var progress = _score.progress();
-        var radius = (w < h ? w : h) / 2 - 8;
-        dc.setPenWidth(10);
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawCircle(cx, cy, radius); // faint full track
-        if (progress > 0.0) {
-            dc.setColor(_ringColor(progress), Graphics.COLOR_TRANSPARENT);
-            var endDeg = (90.0 - (progress * 360.0)).toNumber();
+        // Progress ring (bold, eased toward the real score)
+        var radius = (w < h ? w : h) / 2 - Theme.RING_INSET;
+        dc.setPenWidth(Theme.ringPenWidth(radius));
+        dc.setColor(Theme.RING_TRACK, Graphics.COLOR_TRANSPARENT);
+        dc.drawCircle(cx, cy, radius); // full track
+        if (_displayedProgress > 0.005) {
+            dc.setColor(Theme.ringColor(_displayedProgress), Graphics.COLOR_TRANSPARENT);
+            var endDeg = (90.0 - (_displayedProgress * 360.0)).toNumber();
             dc.drawArc(cx, cy, radius, Graphics.ARC_CLOCKWISE, 90, endDeg);
         }
 
         // Headline
-        dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(Theme.ALERT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, h * 0.16, Graphics.FONT_MEDIUM, "GET UP!", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Center: score percent
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - 24, Graphics.FONT_NUMBER_MEDIUM,
+        // Center: score percent. Biased above cy (rather than perfectly
+        // centered) so the huge numeral font leaves enough room below it,
+        // within the ring, for the label and info lines that follow.
+        var scoreFont = Theme.bigNumberFont(w);
+        var scoreY = cy - (dc.getFontHeight(scoreFont) * 0.72);
+        dc.setColor(Theme.TXT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, scoreY, scoreFont,
             _score.total().toString(), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + 18, Graphics.FONT_XTINY, "awake score", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Component readouts
+        // "awake score" label stacked from the number's real bottom edge.
+        var labelY = Theme.stackY(dc, scoreY, scoreFont, 2);
+        dc.setColor(Theme.TXT2, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, labelY, Graphics.FONT_XTINY, "awake score", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Bottom info cluster: chained off the label's real bottom edge (not
+        // an independent guessed fraction) so it can never collide with it
+        // regardless of how tall the score font renders.
+        var infoY = Theme.stackY(dc, labelY, Graphics.FONT_XTINY, 4);
         var line = "steps " + _score.stepsRemaining().format("%d") + " to go";
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.70, Graphics.FONT_XTINY, line, Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Theme.TXT2, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, infoY, Graphics.FONT_XTINY, line, Graphics.TEXT_JUSTIFY_CENTER);
+        infoY = Theme.stackY(dc, infoY, Graphics.FONT_XTINY, 2);
 
         if (_cfg.hrRiseBpm > 0) {
             var hrLine = "HR +" + _score.hrRise().format("%d") + "/" + _cfg.hrRiseBpm.format("%d");
-            dc.drawText(cx, h * 0.77, Graphics.FONT_XTINY, hrLine, Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, infoY, Graphics.FONT_XTINY, hrLine, Graphics.TEXT_JUSTIFY_CENTER);
+            infoY = Theme.stackY(dc, infoY, Graphics.FONT_XTINY, 2);
         }
 
         // Snooze hint
+        dc.setColor(Theme.TXT_HINT, Graphics.COLOR_TRANSPARENT);
         if (snoozesRemaining() > 0) {
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, h * 0.86, Graphics.FONT_XTINY,
+            dc.drawText(cx, infoY, Graphics.FONT_XTINY,
                 "START snooze (" + snoozesRemaining().format("%d") + ")", Graphics.TEXT_JUSTIFY_CENTER);
         } else {
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, h * 0.86, Graphics.FONT_XTINY, "no snoozes left", Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(cx, infoY, Graphics.FONT_XTINY, "no snoozes left", Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
-    function _drawSnooze(dc as Graphics.Dc, cx as Number, h as Number) as Void {
+    function _drawSnooze(dc as Graphics.Dc, cx as Number, h as Number, w as Number) as Void {
         var remMs = _phaseEndMs - System.getTimer();
         if (remMs < 0) { remMs = 0; }
         var remSec = (remMs / 1000) + 1;
 
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.28, Graphics.FONT_SMALL, "Snoozing", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.42, Graphics.FONT_NUMBER_MEDIUM,
-            remSec.toString(), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.68, Graphics.FONT_XTINY, "get ready to move", Graphics.TEXT_JUSTIFY_CENTER);
-    }
+        var y = h * 0.26;
+        dc.setColor(Theme.ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_SMALL, "Snoozing", Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, Graphics.FONT_SMALL, 12);
 
-    function _ringColor(progress as Float) {
-        if (progress >= 0.9) {
-            return Graphics.COLOR_GREEN;
-        } else if (progress >= 0.5) {
-            return Graphics.COLOR_YELLOW;
-        }
-        return Graphics.COLOR_ORANGE;
+        var bigFont = Theme.bigNumberFont(w);
+        dc.setColor(Theme.TXT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, bigFont, remSec.toString(), Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, bigFont, 12);
+
+        dc.setColor(Theme.TXT_HINT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "get ready to move", Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

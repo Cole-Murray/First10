@@ -48,40 +48,69 @@ class SetupView extends WatchUi.View {
         var h = dc.getHeight();
         var cx = w / 2;
 
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.setColor(Theme.BG, Theme.BG);
         dc.clear();
 
-        // Title
-        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.12, Graphics.FONT_SMALL, "First10", Graphics.TEXT_JUSTIFY_CENTER);
+        // Running top-anchored cursor: every line below advances past the
+        // previous line's *actual* rendered height (Theme.stackY) instead of
+        // an independently-guessed height fraction, so nothing overlaps
+        // regardless of font metrics or screen size.
+        var y = h * 0.08;
 
         // Nap length (the big number)
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.28, Graphics.FONT_NUMBER_MEDIUM,
-            durationMinutes().toString(), Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.50, Graphics.FONT_TINY, "minute nap", Graphics.TEXT_JUSTIFY_CENTER);
+        var bigFont = Theme.bigNumberFont(w);
+        dc.setColor(Theme.TXT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, bigFont, durationMinutes().toString(), Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, bigFont, 0);
 
-        // Difficulty
-        dc.setColor(_difficultyColor(), Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.60, Graphics.FONT_SMALL,
-            "Difficulty: " + Difficulty.name(_difficulty), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Theme.TXT2, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_TINY, "minute nap", Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, Graphics.FONT_TINY, 2);
+
+        // Difficulty label + pips
+        dc.setColor(Theme.difficultyColor(_difficulty), Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_SMALL, Difficulty.name(_difficulty), Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, Graphics.FONT_SMALL, 0);
+
+        // Pips are short (a few px tall, not a full text line), so they get a
+        // fixed pixel offset off the cursor rather than another stackY hop.
+        var pipRadius = 4;
+        var pipsY = (y + pipRadius).toNumber();
+        _drawPips(dc, cx, pipsY, _difficulty);
+        y = pipsY + pipRadius + 4;
 
         // Hints
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.76, Graphics.FONT_XTINY, "UP/DOWN length", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.drawText(cx, h * 0.83, Graphics.FONT_XTINY, "MENU difficulty", Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, h * 0.90, Graphics.FONT_XTINY, "START to nap", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Theme.TXT_HINT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "UP/DOWN length", Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, Graphics.FONT_XTINY, 2);
+
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "MENU difficulty", Graphics.TEXT_JUSTIFY_CENTER);
+        y = Theme.stackY(dc, y, Graphics.FONT_XTINY, 2);
+
+        dc.setColor(Theme.GO, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, "START to nap", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    function _difficultyColor() {
-        if (_difficulty <= Difficulty.EASY) {
-            return Graphics.COLOR_GREEN;
-        } else if (_difficulty == Difficulty.MEDIUM) {
-            return Graphics.COLOR_YELLOW;
+    // Three small dots showing difficulty at a glance: (level + 1) filled in
+    // the difficulty color, the rest drawn as dim outlines.
+    function _drawPips(dc as Graphics.Dc, cx as Number, y as Number, level as Number) as Void {
+        var count = 3;
+        var filled = level + 1;
+        var spacing = 20;
+        var r = 4;
+        var startX = cx - (((count - 1) * spacing) / 2);
+        var color = Theme.difficultyColor(level);
+
+        for (var i = 0; i < count; i++) {
+            var x = startX + (i * spacing);
+            if (i < filled) {
+                dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+                dc.fillCircle(x, y, r);
+            } else {
+                dc.setColor(Theme.TXT_HINT, Graphics.COLOR_TRANSPARENT);
+                dc.drawCircle(x, y, r);
+            }
         }
-        return Graphics.COLOR_RED;
     }
 
     function _indexForMinutes(m as Number) as Number {
