@@ -7,6 +7,7 @@ tags: [state-machine, idempotency, view-lifecycle, connect-iq, re-entrancy, anti
 symptoms: anti-cheat bypass / timer resets silently on re-entry
 severity: high
 date: 2026-08-06
+status: fixed
 ---
 
 ## Problem
@@ -33,25 +34,29 @@ trivially satisfying the requirement.
 the 4s capture window to always run to completion before any alternate transition is
 reachable.
 
-## Still-open instances of the same root cause (NOT fixed)
+## Second and third instances of the same root cause (also fixed)
 
 Both of these reset session state unconditionally in `onShow()`, with no guard
 distinguishing "fresh session start" from "the OS re-showed an already-active view
 instance" (e.g. a notification overlay hiding/re-showing the screen mid-alarm or
 mid-nap without destroying the view object):
 
-- `source/AlarmView.mc:51-56` — `onShow()` unconditionally sets
+- `source/AlarmView.mc` — `onShow()` unconditionally set
   `_alarmStartMs = now`, `_phase = PHASE_BASELINE`, and `_phaseEndMs = now + BASELINE_MS`
   every call. A re-entrant `onShow()` mid-alarm would silently rewind the phase back to
-  baseline capture and reset the hard-cap start clock (`_alarmStartMs`, read at line 156
-  for the hard-cap check), giving the user extra time or re-running baseline capture with
-  stale sensor state.
-- `source/NappingView.mc:26-29` — `onShow()` unconditionally sets
-  `_startMs = System.getTimer()` (and the derived `_peekUntilMs`), which is read at
-  line 48 to compute nap elapsed time. A re-entrant `onShow()` mid-nap would silently
-  reset the elapsed-time clock, delaying the alarm.
+  baseline capture and reset the hard-cap start clock (`_alarmStartMs`, read for the
+  hard-cap check), giving the user extra time or re-running baseline capture with stale
+  sensor state.
+- `source/NappingView.mc` — `onShow()` unconditionally set
+  `_startMs = System.getTimer()` (and the derived `_peekUntilMs`), which is read to
+  compute nap elapsed time. A re-entrant `onShow()` mid-nap would silently reset the
+  elapsed-time clock, delaying the alarm.
 
-These are confirmed open — not yet fixed as of this writing.
+**Fix (commit `1d224fc`):** both now guard the one-time state behind their existing
+start-timestamp field as the sentinel (`if (_alarmStartMs == 0) { ... }` /
+`if (_startMs == 0) { ... }`), exactly the shape proposed below. `SensorManager.start()`
+in `AlarmView.onShow()` stays unconditional -- it was already idempotent (no-op if
+already running), so it didn't need the guard.
 
 ## The pattern
 
@@ -67,6 +72,12 @@ if (_alarmStartMs == 0) {
     _phaseEndMs = now + BASELINE_MS;
 }
 ```
+
+## Status
+
+All three known instances (the fixed snooze/baseline bypass above, plus both `onShow()`
+cases) are now fixed as of `1d224fc`. Keeping this entry for the pattern -- the same
+shape is worth checking any time a new view or lifecycle callback is added.
 
 ## Prevention / application
 
