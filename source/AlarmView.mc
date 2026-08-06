@@ -75,7 +75,12 @@ class AlarmView extends WatchUi.View {
 
     // Called by the delegate when the user hits SELECT/START.
     function snooze() as Void {
-        if (_phase == PHASE_DONE || _phase == PHASE_SNOOZE) {
+        // Block during PHASE_BASELINE too: snoozing here would skip
+        // _score.setBaseline() entirely, leaving the step baseline at 0 and
+        // letting the day's full cumulative step count trivially satisfy the
+        // anti-cheat step requirement. The baseline window is only 4s, so
+        // requiring it to finish first costs the user nothing.
+        if (_phase == PHASE_DONE || _phase == PHASE_SNOOZE || _phase == PHASE_BASELINE) {
             return;
         }
         if (_snoozesUsed >= Settings.maxSnoozes()) {
