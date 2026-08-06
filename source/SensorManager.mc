@@ -27,6 +27,7 @@ class SensorManagerImpl {
 
     var _running = false as Boolean;
     var _hr = null as Number?;
+    var _hrEnabled = false as Boolean; // true only if enableSensorEvents succeeded
     var _motion = 0.0 as Float;      // EMA of accel magnitude std-dev (mg)
     var _hasGyro = false as Boolean; // whether gyro data is actually arriving
     var _accelListenerActive = false as Boolean;
@@ -35,6 +36,15 @@ class SensorManagerImpl {
     // are the essentials; gyro is a bonus used only for the anti-cheat gait check.
     function heartRateSupported() as Boolean {
         return (Sensor has :setEnabledSensors) && (Sensor has :enableSensorEvents);
+    }
+
+    // Whether HR was actually turned on this session -- distinct from
+    // heartRateSupported() (a capability check). False means either the
+    // platform doesn't support it or enableSensorEvents threw; either way,
+    // no HR reading will ever arrive, so callers can give up on it immediately
+    // instead of waiting out a grace period.
+    function heartRateEnabled() as Boolean {
+        return _hrEnabled;
     }
 
     function highFreqSupported() as Boolean {
@@ -47,6 +57,7 @@ class SensorManagerImpl {
         }
         _running = true;
         _hr = null;
+        _hrEnabled = false;
         _motion = 0.0;
         _hasGyro = false;
 
@@ -55,6 +66,7 @@ class SensorManagerImpl {
             try {
                 Sensor.setEnabledSensors([ Sensor.SENSOR_HEARTRATE ]);
                 Sensor.enableSensorEvents(method(:onSensorInfo));
+                _hrEnabled = true;
             } catch (e) {
                 System.println("HR enable failed: " + e.getErrorMessage());
             }
@@ -184,6 +196,10 @@ module SensorManager {
 
     function heartRateSupported() as Boolean {
         return _impl.heartRateSupported();
+    }
+
+    function heartRateEnabled() as Boolean {
+        return _impl.heartRateEnabled();
     }
 
     function highFreqSupported() as Boolean {

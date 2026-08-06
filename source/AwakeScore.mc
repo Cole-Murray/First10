@@ -29,8 +29,39 @@ class AwakeScore {
     var _holdAccum as Float = 0.0;     // seconds the pass condition has held
     var _passed as Boolean = false;
 
+    var _hrDisabled as Boolean = false; // true once HR has been given up on for this session
+
     function initialize(cfg as Difficulty.Config) {
         _cfg = cfg;
+    }
+
+    // Give up on HR for the rest of this session: renormalize wSteps/wMotion
+    // to fill the weight HR used to carry, zero out wHr, and lift Hard's
+    // mandatory gate. Called once HR is confirmed unavailable (sensor
+    // disabled/unsupported, or never produced a reading within the grace
+    // period) so a dead HR sensor can't make the alarm harder than intended
+    // -- or, on Hard, impossible -- instead of just not helping. Idempotent.
+    function disableHr() as Void {
+        if (_hrDisabled) {
+            return;
+        }
+        _hrDisabled = true;
+        var remaining = _cfg.wSteps + _cfg.wMotion;
+        if (remaining > 0.0) {
+            _cfg.wSteps = _cfg.wSteps / remaining;
+            _cfg.wMotion = _cfg.wMotion / remaining;
+        } else {
+            // No difficulty preset actually zeroes both today, but fall back
+            // to an even split rather than leaving both weights at 0.
+            _cfg.wSteps = 0.5;
+            _cfg.wMotion = 0.5;
+        }
+        _cfg.wHr = 0.0;
+        _cfg.hrGate = false;
+    }
+
+    function hrDisabled() as Boolean {
+        return _hrDisabled;
     }
 
     // Capture the resting baseline at the moment the wake phase begins (user is

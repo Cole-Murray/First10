@@ -17,6 +17,11 @@ class AlarmView extends WatchUi.View {
     }
 
     const BASELINE_MS = 4000;
+    // How long to wait for a first HR reading before giving up on HR entirely
+    // for this session (see _maybeDisableHr). Real optical HR sensors can
+    // take a while to lock on right after waking; this is generous enough to
+    // avoid punishing a slow-to-settle sensor while still bounding the wait.
+    const HR_GRACE_MS = 45000;
 
     var _cfg as Difficulty.Config;
     var _score as AwakeScore;
@@ -125,6 +130,8 @@ class AlarmView extends WatchUi.View {
         var steps = SensorManager.getSteps();
         var motion = SensorManager.getMotion();
 
+        _maybeDisableHr(hr, now);
+
         if (_phase == PHASE_BASELINE) {
             if (hr != null) {
                 _hrSum += hr;
@@ -171,6 +178,24 @@ class AlarmView extends WatchUi.View {
                 return;
             }
             WatchUi.requestUpdate();
+        }
+    }
+
+    // Give up on HR for this session -- immediately if it's confirmed dead
+    // (unsupported, or enabling it threw), or after HR_GRACE_MS of PHASE_ACTIVE
+    // with no reading yet -- and let AwakeScore renormalize around steps+motion
+    // rather than leaving Medium/Hard stuck behind a sensor that will never
+    // report. See docs/solutions/architecture-patterns/sensor-degraded-mode-fallback.md.
+    function _maybeDisableHr(hr as Number?, now as Number) as Void {
+        if (_score.hrDisabled()) {
+            return;
+        }
+        if (!SensorManager.heartRateEnabled()) {
+            _score.disableHr();
+            return;
+        }
+        if (hr == null && (now - _alarmStartMs) >= HR_GRACE_MS) {
+            _score.disableHr();
         }
     }
 
