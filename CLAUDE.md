@@ -79,7 +79,7 @@ it from the apps menu (not a glance — there isn't one).
 
 ## Known issues from first code review
 
-A full-codebase review has run once. Four findings are already fixed — don't rediscover these:
+A full-codebase review has run once. Five findings are already fixed — don't rediscover these:
 
 - Fixed (`1d9ed9c`): `AlarmView.snooze()` allowed a reflexive SELECT-press during the 4s
   `PHASE_BASELINE` window to skip step-baseline capture, trivializing the step anti-cheat check.
@@ -93,21 +93,18 @@ A full-codebase review has run once. Four findings are already fixed — don't r
   their existing start-timestamp sentinel (`_alarmStartMs` / `_startMs`, both default 0), so a
   later `onShow` only re-arms the `Timer.Timer` rather than restarting the session. See
   `docs/solutions/logic-errors/idempotent-state-capture-on-view-reentry.md` for the pattern.
+- Fixed (`693f03f`): a swallowed `Sensor.enableSensorEvents` exception left HR permanently null
+  with no fallback, and Medium's `passMark` (90) mathematically required some HR contribution
+  despite `hrGate=false`. `SensorManager.heartRateEnabled()` now distinguishes "will never
+  report" from "hasn't reported yet," and `AwakeScore.disableHr()` renormalizes wSteps/wMotion
+  and lifts Hard's gate once HR is confirmed dead (immediately, or after a 45s grace period) --
+  see `docs/solutions/architecture-patterns/sensor-degraded-mode-fallback.md`. Deliberately no UI
+  change: the "HR +x/y" hint keeps showing even once HR stops counting toward the score.
 
-Open findings, left unfixed deliberately — each involves product/design judgment on a
-safety-critical anti-cheat flow, not a mechanical bug fix:
+Open findings, left unfixed deliberately — each involves product/design judgment or effort
+beyond a mechanical bug fix:
 
-1. **A swallowed `Sensor.enableSensorEvents` exception in `SensorManagerImpl.start()` leaves HR
-   permanently null with no fallback.** The catch block only logs; nothing distinguishes "device
-   supports HR" from "HR actually enabled," and nothing degrades score weights once HR is
-   confirmed dead.
-2. **Medium's `passMark` (90) in `Difficulty.forLevel()` mathematically requires some HR
-   contribution even though `hrGate` is `false`** — maxing steps + motion with zero HR only
-   reaches 75. This contradicts `AwakeScore.mc`'s own comment describing HR as an optional
-   weighted contributor on Medium vs. a mandatory gate only on Hard. Compounds with #1: if HR
-   never arrives, Medium becomes unpassable and Hard's gate becomes literally impossible, leaving
-   only the hard-cap timer or emergency valve as an exit.
-3. **No automated tests exist.** `AwakeScore.mc`'s pass/fail logic (`stepScore`, `motionScore`,
+1. **No automated tests exist.** `AwakeScore.mc`'s pass/fail logic (`stepScore`, `motionScore`,
    `hrScore`, `total`, `_conditionMet`, `tick`) is pure and sensor/UI-free — the cheapest code
    here to unit test, and the exact mechanism that confirmed the now-fixed snooze/baseline bug
    was real. Connect IQ supports `(:test)`-annotated unit tests runnable via `monkeydo --test`;

@@ -6,7 +6,7 @@ component: anti-cheat-scoring
 tags: [sensor-fallback, degraded-mode, threshold-tuning, connect-iq, heart-rate, weighted-scoring]
 severity: medium
 date: 2026-08-06
-status: open
+status: fixed
 ---
 
 ## Problem
@@ -42,7 +42,19 @@ rather than "hard but achievable."
 
 ## Status
 
-This is an **open design gap**, not a fixed bug. No code change has been made for it.
+**Fixed (commit `693f03f`).** Chosen policy: renormalize after a grace period, no UI change.
+
+- `SensorManager` now tracks real enable success (`heartRateEnabled()`), distinct from the
+  `heartRateSupported()` capability check — distinguishing "will never report" from "hasn't
+  reported yet."
+- `AwakeScore.disableHr()` renormalizes `wSteps`/`wMotion` to fill the weight HR used to carry,
+  zeroes `wHr`, and lifts Hard's `hrGate`. Idempotent, applied once per session.
+- `AlarmView._maybeDisableHr()` calls it immediately once `heartRateEnabled()` is false (device
+  unsupported, or enabling threw), or after a 45s grace period of `PHASE_ACTIVE` with no reading
+  yet — long enough for a real optical sensor to lock on, short enough to bound the wait.
+- Deliberate product choice: no UI change. The "HR +x/y" hint on `AlarmView` keeps showing even
+  after HR stops counting toward the score, since `hrRiseBpm` (display) is untouched by
+  `disableHr()` (scoring only).
 
 ## The pattern / lesson
 
