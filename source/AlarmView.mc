@@ -50,15 +50,22 @@ class AlarmView extends WatchUi.View {
 
     function onShow() as Void {
         var now = System.getTimer();
-        _alarmStartMs = now;
         _lastTickMs = now;
-        _phase = PHASE_BASELINE;
-        _phaseEndMs = now + BASELINE_MS;
         _nextAlertMs = now;
-        _displayedProgress = 0.0;
 
-        SensorManager.start();
-        _baselineSteps = SensorManager.getSteps();
+        SensorManager.start(); // idempotent -- no-op if already running
+
+        // First show only: the OS can hide+re-show an already-active alarm
+        // (e.g. a notification overlay) without destroying this View. A later
+        // onShow must not rewind the hard-cap clock, restart baseline capture,
+        // or snap the eased progress ring back to 0.
+        if (_alarmStartMs == 0) {
+            _alarmStartMs = now;
+            _phase = PHASE_BASELINE;
+            _phaseEndMs = now + BASELINE_MS;
+            _displayedProgress = 0.0;
+            _baselineSteps = SensorManager.getSteps();
+        }
 
         if (_timer == null) {
             _timer = new Timer.Timer();

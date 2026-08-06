@@ -24,9 +24,14 @@ class NappingView extends WatchUi.View {
     }
 
     function onShow() as Void {
-        _startMs = System.getTimer();
-        // Peek for a few seconds at the start so the user sees it armed.
-        _peekUntilMs = _startMs + 4000;
+        // First show only: the OS can hide+re-show an already-active nap
+        // (e.g. a notification overlay) without destroying this View. A later
+        // onShow must not rewind the nap clock or re-trigger the initial peek.
+        if (_startMs == 0) {
+            _startMs = System.getTimer();
+            // Peek for a few seconds at the start so the user sees it armed.
+            _peekUntilMs = _startMs + 4000;
+        }
         if (_timer == null) {
             _timer = new Timer.Timer();
             _timer.start(method(:onTick), 1000, true);
