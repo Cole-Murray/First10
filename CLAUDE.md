@@ -76,3 +76,41 @@ it from the apps menu (not a glance — there isn't one).
   to avoid a fragile binary-asset build step; `Theme.bigNumberFont` is the interim "premium
   numeral" solution.
 - `developer_key.der` and `bin/` are gitignored — never commit the signing key.
+
+## Known issues from first code review
+
+A full-codebase review has run once. Two findings are already fixed — don't rediscover these:
+
+- Fixed (`1d9ed9c`): `AlarmView.snooze()` allowed a reflexive SELECT-press during the 4s
+  `PHASE_BASELINE` window to skip step-baseline capture, trivializing the step anti-cheat check.
+  Snooze is now also blocked during `PHASE_BASELINE`.
+- Fixed (`81e3be5`): dead `SensorManager` API surface (`stop()`, `isRunning()`, `gyroPresent()`,
+  zero call sites) removed.
+
+Open findings, left unfixed deliberately — each involves product/design judgment on a
+safety-critical anti-cheat flow, not a mechanical bug fix:
+
+1. **`AlarmView.onShow()` unconditionally resets the hard-cap timer and Awake-Score baseline**
+   on every show, with no guard for "fresh alarm start" vs. the OS re-showing an already-active
+   view (e.g. a notification overlay). A mid-alarm re-entrancy silently resets both the hard-cap
+   deadline and score progress — not a trap (BACK-press emergency valve still works), but the
+   hard-cap guarantee is no longer actually bounded across an interruption.
+2. **`NappingView.onShow()` unconditionally resets the nap start time** on every show — same
+   class of bug as #1. An OS re-show mid-nap would silently extend the nap by the elapsed time.
+3. **A swallowed `Sensor.enableSensorEvents` exception in `SensorManagerImpl.start()` leaves HR
+   permanently null with no fallback.** The catch block only logs; nothing distinguishes "device
+   supports HR" from "HR actually enabled," and nothing degrades score weights once HR is
+   confirmed dead.
+4. **Medium's `passMark` (90) in `Difficulty.forLevel()` mathematically requires some HR
+   contribution even though `hrGate` is `false`** — maxing steps + motion with zero HR only
+   reaches 75. This contradicts `AwakeScore.mc`'s own comment describing HR as an optional
+   weighted contributor on Medium vs. a mandatory gate only on Hard. Compounds with #3: if HR
+   never arrives, Medium becomes unpassable and Hard's gate becomes literally impossible, leaving
+   only the hard-cap timer or emergency valve as an exit.
+5. **No automated tests exist.** `AwakeScore.mc`'s pass/fail logic (`stepScore`, `motionScore`,
+   `hrScore`, `total`, `_conditionMet`, `tick`) is pure and sensor/UI-free — the cheapest code
+   here to unit test, and the exact mechanism that confirmed finding #1 (now fixed) was real.
+   Connect IQ supports `(:test)`-annotated unit tests runnable via `monkeydo --test`; none exist.
+
+Also open, cosmetic/non-blocking: `resources/drawables/launcher_icon.png` is 60×60; the FR265
+launcher-icon spec is closer to 40×40.
