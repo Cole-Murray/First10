@@ -31,10 +31,6 @@ class SensorManagerImpl {
     var _hasGyro = false as Boolean; // whether gyro data is actually arriving
     var _accelListenerActive = false as Boolean;
 
-    function isRunning() as Boolean {
-        return _running;
-    }
-
     // Whether the platform can supply what the Awake Score needs. Steps and HR
     // are the essentials; gyro is a bonus used only for the anti-cheat gait check.
     function heartRateSupported() as Boolean {
@@ -43,10 +39,6 @@ class SensorManagerImpl {
 
     function highFreqSupported() as Boolean {
         return (Sensor has :registerSensorDataListener);
-    }
-
-    function gyroPresent() as Boolean {
-        return _hasGyro;
     }
 
     function start() as Void {
@@ -81,10 +73,6 @@ class SensorManagerImpl {
                 System.println("accel listener failed: " + e.getErrorMessage());
             }
         }
-    }
-
-    function stop() as Void {
-        shutdown();
     }
 
     // Safe to call even if never started.
@@ -194,10 +182,6 @@ module SensorManager {
 
     var _impl = new SensorManagerImpl();
 
-    function isRunning() as Boolean {
-        return _impl.isRunning();
-    }
-
     function heartRateSupported() as Boolean {
         return _impl.heartRateSupported();
     }
@@ -206,16 +190,8 @@ module SensorManager {
         return _impl.highFreqSupported();
     }
 
-    function gyroPresent() as Boolean {
-        return _impl.gyroPresent();
-    }
-
     function start() as Void {
         _impl.start();
-    }
-
-    function stop() as Void {
-        _impl.stop();
     }
 
     function shutdown() as Void {
