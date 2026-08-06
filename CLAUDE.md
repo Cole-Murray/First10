@@ -79,7 +79,7 @@ it from the apps menu (not a glance — there isn't one).
 
 ## Known issues from first code review
 
-A full-codebase review has run once. Five findings are already fixed — don't rediscover these:
+A full-codebase review has run once. All findings are now fixed — don't rediscover these:
 
 - Fixed (`1d9ed9c`): `AlarmView.snooze()` allowed a reflexive SELECT-press during the 4s
   `PHASE_BASELINE` window to skip step-baseline capture, trivializing the step anti-cheat check.
@@ -100,15 +100,15 @@ A full-codebase review has run once. Five findings are already fixed — don't r
   and lifts Hard's gate once HR is confirmed dead (immediately, or after a 45s grace period) --
   see `docs/solutions/architecture-patterns/sensor-degraded-mode-fallback.md`. Deliberately no UI
   change: the "HR +x/y" hint keeps showing even once HR stops counting toward the score.
+- Fixed (`7261bf0`): no automated tests existed for `AwakeScore.mc`'s pass/fail logic. Added 15
+  `(:test)` unit tests covering component-score clamping, the weighted total, Hard's mandatory
+  HR gate (including a synthetic config that isolates the gate from Hard's specific weight
+  tuning), the hold-timer reset-on-drop, and the `disableHr()` fallback above. Run with
+  `monkeyc ... --unit-test` + `monkeydo <prg> <device> -t`; stripped automatically from normal
+  builds.
 
-Open findings, left unfixed deliberately — each involves product/design judgment or effort
-beyond a mechanical bug fix:
+Every fix above is covered by a regression test, a `docs/solutions/` entry, or both — check
+both before re-deriving a "new" bug in this area.
 
-1. **No automated tests exist.** `AwakeScore.mc`'s pass/fail logic (`stepScore`, `motionScore`,
-   `hrScore`, `total`, `_conditionMet`, `tick`) is pure and sensor/UI-free — the cheapest code
-   here to unit test, and the exact mechanism that confirmed the now-fixed snooze/baseline bug
-   was real. Connect IQ supports `(:test)`-annotated unit tests runnable via `monkeydo --test`;
-   none exist.
-
-Also open, cosmetic/non-blocking: `resources/drawables/launcher_icon.png` is 60×60; the FR265
+Still open, cosmetic/non-blocking: `resources/drawables/launcher_icon.png` is 60×60; the FR265
 launcher-icon spec is closer to 40×40.
